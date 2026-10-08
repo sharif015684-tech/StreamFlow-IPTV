@@ -1,0 +1,50 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find and extract project ZIP
+        run: |
+          mkdir -p project
+          unzip -q vision-iptv.zip -d project
+
+          echo "Searching for Gradle project..."
+          GRADLEW=$(find project -type f -name gradlew | head -n 1)
+
+          if [ -z "$GRADLEW" ]; then
+            echo "ERROR: gradlew was not found in the ZIP."
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradle executable
+        run: chmod +x "$PROJECT_DIR/gradlew"
+
+      - name: Build Debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: StreamFlow-IPTV-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
